@@ -109,6 +109,9 @@ public class SlotMachineController : MonoBehaviour
     public int spinCost = 10;
     public int winReward = 30;
 
+    [Header("Bet System")]
+    public int currentBet = 20;   
+
     private int columnsFinished = 0;
 
     void Start() => InitialiseSlotRenderers();
@@ -130,14 +133,14 @@ public class SlotMachineController : MonoBehaviour
 
     public void Spin(LeverController lever = null)
     {
-        if (!CurrencyManager.Instance.CanAfford(spinCost))
+        if (!CurrencyManager.Instance.CanAfford(currentBet))
         {
             Debug.Log("Not enough coins!");
             lever?.UnlockLever();
             return;
         }
 
-        CurrencyManager.Instance.Spend(spinCost);
+        CurrencyManager.Instance.Spend(currentBet);
 
         columnsFinished = 0;
 
@@ -167,8 +170,10 @@ public class SlotMachineController : MonoBehaviour
 
         if (isWin)
         {
+            Debug.Log("WINNER!");
 
-            CurrencyManager.Instance.Add(winReward);
+            int reward = currentBet * 2;
+            CurrencyManager.Instance.Add(reward);
 
             if (jackpotParticlesPrefab != null)
             {

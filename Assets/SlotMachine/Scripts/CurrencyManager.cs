@@ -12,6 +12,8 @@ public class CurrencyManager : MonoBehaviour
     [Header("UI")]
     public TextMeshProUGUI coinText;
 
+    
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -53,4 +55,7 @@ public class CurrencyManager : MonoBehaviour
         if (coinText != null)
             coinText.text = "Coins: " + currentCoins;
     }
+
+
+    
 }
