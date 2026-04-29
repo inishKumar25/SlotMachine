@@ -33,10 +33,10 @@ public class LeverController : MonoBehaviour
 
         isSpinning = true;
         leverAnim.SetTrigger("IsClicked");
-        SMC.Spin(this); // pass ourselves — SMC calls UnlockLever() when spin finishes
+        SMC.Spin(this);
     }
 
-    
+    /// <summary>Called by SlotMachineController when all columns have stopped.</summary>
     public void UnlockLever()
     {
         isSpinning = false;

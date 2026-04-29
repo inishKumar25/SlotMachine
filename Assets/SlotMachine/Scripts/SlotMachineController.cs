@@ -22,23 +22,17 @@ public class SlotMachineController : MonoBehaviour
             slotColumnData.OffsetSlots(randomOffset);
         }
 
-        public void StepOffset(int by = 1)
-        {
-            slotColumnData.OffsetSlots(by);
-        }
+        public void StepOffset(int by = 1) => slotColumnData.OffsetSlots(by);
 
         public void UpdateRenderers()
         {
             for (int i = 0; i < slotRenderers.Count; i++)
-            {
                 if (i < slotColumnData.slotItems.Count)
                     slotRenderers[i].sprite = slotColumnData.slotItems[i]?.icon;
-            }
         }
 
         public int GetItemCount() => slotColumnData?.slotItems?.Count ?? 0;
 
-        /// <summary>Returns the id of the item currently on the payline (center slot).</summary>
         public int GetPaylineItemId()
         {
             int paylineIndex = slotRenderers.Count / 2;
@@ -47,11 +41,6 @@ public class SlotMachineController : MonoBehaviour
             return -1;
         }
 
-        /// <summary>
-        /// Returns the id of the item that WILL be on the payline after one StepOffset(1).
-        /// OffsetSlots(1) moves item[i] to index (i+1)%length,
-        /// so the incoming item came from paylineIndex-1.
-        /// </summary>
         public int GetNextPaylineItemId()
         {
             int paylineIndex = slotRenderers.Count / 2;
@@ -66,34 +55,31 @@ public class SlotMachineController : MonoBehaviour
     public SlotColumnRenderer slotColumnRenderer3;
 
     [Header("Spin Settings")]
-    [Tooltip("Fastest step interval (peak speed)")]
     public float minStepInterval = 0.05f;
-
-    [Tooltip("Slowest step interval (start/stop speed)")]
     public float maxStepInterval = 0.3f;
-
-    [Tooltip("How long each reel spins at full speed before decelerating")]
     public float spinDuration = 2f;
-
-    [Tooltip("How long the deceleration phase lasts")]
     public float decelerationDuration = 1f;
-
-    [Tooltip("Delay between each column stopping (staggered stop)")]
     public float columnStopDelay = 0.4f;
 
     [Header("Fake Win Settings")]
-    [Tooltip("Col1+Col2 land on the same symbol; Col3 tantalizingly slips past it")]
-    public bool fakeWinSpin = false;
-
     [Tooltip("How long Col3 hovers on the near-miss position before slipping away")]
     public float fakeWinPauseDuration = 0.8f;
 
+    [Header("Win Condition")]
+    [Tooltip("Triggers a near-miss after this many normal spins")]
+    public int spinsUntilFakeWin = 8;
+
+    [Tooltip("Triggers a real win after this many spins (must be >= spinsUntilFakeWin)")]
+    public int spinsUntilRealWin = 10;
+
+    [Header("Debug — Read Only")]
+    [SerializeField] private int spinCount = 0;
+    [SerializeField] private bool isFakeWin = false;
+    [SerializeField] private bool isRealWin = false;
+
     // ─────────────────────────────────────────────────────────────────────────
 
-    void Start()
-    {
-        InitialiseSlotRenderers();
-    }
+    void Start() => InitialiseSlotRenderers();
 
     void InitialiseSlotRenderers()
     {
@@ -110,12 +96,27 @@ public class SlotMachineController : MonoBehaviour
         slotColumnRenderer3.UpdateRenderers();
     }
 
-    /// <summary>
-    /// Starts a spin. Accepts an optional LeverController reference so the
-    /// lever is unlocked exactly when all columns finish — not on a timer.
-    /// </summary>
     public void Spin(LeverController lever = null)
     {
+        spinCount++;
+
+        isRealWin = spinCount >= spinsUntilRealWin;
+        isFakeWin = isRealWin || spinCount >= spinsUntilFakeWin;
+
+        if (isRealWin)
+        {
+            spinCount = 0;
+            Debug.Log("[RealWin] Forced win triggered!");
+        }
+        else if (isFakeWin)
+        {
+            Debug.Log($"[FakeWin] Near-miss triggered on spin {spinCount}.");
+        }
+        else
+        {
+            Debug.Log($"[NormalSpin] Spin {spinCount}/{spinsUntilFakeWin} until near-miss.");
+        }
+
         StartCoroutine(SpinAllColumns(lever));
     }
 
@@ -123,25 +124,27 @@ public class SlotMachineController : MonoBehaviour
     {
         int targetId = -1;
 
-        if (fakeWinSpin)
+        if (isFakeWin)
         {
             var items = SlotMachineData.Instance.sampleColumnData.slotItems;
             targetId = items[Random.Range(0, items.Count)]?.id ?? 0;
-            Debug.Log($"[FakeWin] Near-miss target symbol id: {targetId}");
+            Debug.Log($"[Alignment] Target symbol id: {targetId}");
         }
 
-        StartCoroutine(SpinColumn(slotColumnRenderer1, stopDelay: 0f, extraSteps: Random.Range(0, 10), fakeWin: fakeWinSpin, targetId: targetId, slip: false));
-        StartCoroutine(SpinColumn(slotColumnRenderer2, stopDelay: columnStopDelay, extraSteps: Random.Range(0, 10), fakeWin: fakeWinSpin, targetId: targetId, slip: false));
-        StartCoroutine(SpinColumn(slotColumnRenderer3, stopDelay: columnStopDelay * 2, extraSteps: Random.Range(0, 10), fakeWin: fakeWinSpin, targetId: targetId, slip: true));
+        StartCoroutine(SpinColumn(slotColumnRenderer1, stopDelay: 0f, extraSteps: Random.Range(0, 10), fakeWin: isFakeWin, targetId: targetId, slip: false, realWin: isRealWin));
+        StartCoroutine(SpinColumn(slotColumnRenderer2, stopDelay: columnStopDelay, extraSteps: Random.Range(0, 10), fakeWin: isFakeWin, targetId: targetId, slip: false, realWin: isRealWin));
+        StartCoroutine(SpinColumn(slotColumnRenderer3, stopDelay: columnStopDelay * 2, extraSteps: Random.Range(0, 10), fakeWin: isFakeWin, targetId: targetId, slip: true, realWin: isRealWin));
 
         float totalDuration = spinDuration + decelerationDuration + (columnStopDelay * 2) + 1f;
-        if (fakeWinSpin)
+        if (isFakeWin)
             totalDuration += fakeWinPauseDuration + (maxStepInterval * 10);
 
         yield return new WaitForSeconds(totalDuration);
 
+        if (isRealWin) Debug.Log("🎰 WINNER!");
         Debug.Log("All columns stopped.");
-        lever?.UnlockLever(); // unlocks the lever exactly when the spin is fully done
+
+        lever?.UnlockLever();
     }
 
     private IEnumerator SpinColumn(
@@ -150,7 +153,8 @@ public class SlotMachineController : MonoBehaviour
         int extraSteps = 0,
         bool fakeWin = false,
         int targetId = -1,
-        bool slip = false)
+        bool slip = false,
+        bool realWin = false)
     {
         float elapsed = 0f;
         float accelerationDuration = 0.3f;
@@ -197,14 +201,15 @@ public class SlotMachineController : MonoBehaviour
             elapsed += interval;
         }
 
-        // ── Fake Win Alignment ────────────────────────────────────────────
+        // ── Alignment phase ───────────────────────────────────────────────
         if (!fakeWin || targetId < 0) yield break;
 
         int itemCount = column.GetItemCount();
 
-        if (!slip)
+        if (realWin || !slip)
         {
-            // Col 1 & 2: creep forward until target symbol is on the payline
+            // Real win  → all 3 cols land on target
+            // Fake win  → col 1 & 2 land on target (col 3 handled in else)
             for (int i = 0; i < itemCount; i++)
             {
                 if (column.GetPaylineItemId() == targetId) break;
@@ -215,7 +220,7 @@ public class SlotMachineController : MonoBehaviour
         }
         else
         {
-            // Col 3: creep forward until ONE more step would land target on payline
+            // Fake win col 3: stop one step before target, pause, then slip
             for (int i = 0; i < itemCount; i++)
             {
                 if (column.GetNextPaylineItemId() == targetId) break;
@@ -224,10 +229,9 @@ public class SlotMachineController : MonoBehaviour
                 yield return new WaitForSeconds(maxStepInterval);
             }
 
-            // Dramatic pause — player thinks they've won!
             yield return new WaitForSeconds(fakeWinPauseDuration);
 
-            // Cruel slip — one step past the winning symbol
+            // Cruel slip past the winning symbol
             column.StepOffset(1);
             column.UpdateRenderers();
         }
