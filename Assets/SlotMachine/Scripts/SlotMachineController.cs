@@ -72,12 +72,16 @@ public class SlotMachineController : MonoBehaviour
     [Tooltip("Triggers a real win after this many spins (must be >= spinsUntilFakeWin)")]
     public int spinsUntilRealWin = 10;
 
+    [Header("Jackpot Effects")]
+    [Tooltip("Assign a ParticleSystem in the Inspector to play on a real win")]
+    public ParticleSystem jackpotParticles;
+
     [Header("Debug — Read Only")]
     [SerializeField] private int spinCount = 0;
     [SerializeField] private bool isFakeWin = false;
     [SerializeField] private bool isRealWin = false;
 
-    // ─────────────────────────────────────────────────────────────────────────
+
 
     void Start() => InitialiseSlotRenderers();
 
@@ -141,7 +145,18 @@ public class SlotMachineController : MonoBehaviour
 
         yield return new WaitForSeconds(totalDuration);
 
-        if (isRealWin) Debug.Log("🎰 WINNER!");
+        if (isRealWin) 
+        {
+
+            if (jackpotParticles != null)
+                jackpotParticles.Play();
+            else
+                Debug.LogWarning("No jackpot ParticleSystem assigned!");
+            Debug.Log("WINNER!");
+
+        }
+
+       
         Debug.Log("All columns stopped.");
 
         lever?.UnlockLever();
@@ -159,7 +174,7 @@ public class SlotMachineController : MonoBehaviour
         float elapsed = 0f;
         float accelerationDuration = 0.3f;
 
-        // ── Acceleration ──────────────────────────────────────────────────
+        // Acceleration
         while (elapsed < accelerationDuration)
         {
             float t = elapsed / accelerationDuration;
@@ -170,7 +185,7 @@ public class SlotMachineController : MonoBehaviour
             elapsed += interval;
         }
 
-        // ── Full speed ────────────────────────────────────────────────────
+        // Full speed 
         float fullSpeedEnd = spinDuration + stopDelay;
         while (elapsed < fullSpeedEnd)
         {
@@ -180,7 +195,7 @@ public class SlotMachineController : MonoBehaviour
             elapsed += minStepInterval;
         }
 
-        // ── Extra random steps (guarantees unique stop position per column) ─
+        // Extra random steps (guarantees unique stop position per column)
         for (int i = 0; i < extraSteps; i++)
         {
             column.StepOffset(1);
@@ -188,7 +203,7 @@ public class SlotMachineController : MonoBehaviour
             yield return new WaitForSeconds(minStepInterval);
         }
 
-        // ── Deceleration ──────────────────────────────────────────────────
+        // Deceleration 
         float decelStart = elapsed;
         float decelEnd = decelStart + decelerationDuration;
         while (elapsed < decelEnd)
@@ -201,15 +216,14 @@ public class SlotMachineController : MonoBehaviour
             elapsed += interval;
         }
 
-        // ── Alignment phase ───────────────────────────────────────────────
+        // Alignment phase
         if (!fakeWin || targetId < 0) yield break;
 
         int itemCount = column.GetItemCount();
 
         if (realWin || !slip)
         {
-            // Real win  → all 3 cols land on target
-            // Fake win  → col 1 & 2 land on target (col 3 handled in else)
+            
             for (int i = 0; i < itemCount; i++)
             {
                 if (column.GetPaylineItemId() == targetId) break;
@@ -220,7 +234,7 @@ public class SlotMachineController : MonoBehaviour
         }
         else
         {
-            // Fake win col 3: stop one step before target, pause, then slip
+            
             for (int i = 0; i < itemCount; i++)
             {
                 if (column.GetNextPaylineItemId() == targetId) break;
@@ -231,7 +245,6 @@ public class SlotMachineController : MonoBehaviour
 
             yield return new WaitForSeconds(fakeWinPauseDuration);
 
-            // Cruel slip past the winning symbol
             column.StepOffset(1);
             column.UpdateRenderers();
         }

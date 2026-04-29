@@ -36,7 +36,7 @@ public class LeverController : MonoBehaviour
         SMC.Spin(this);
     }
 
-    /// <summary>Called by SlotMachineController when all columns have stopped.</summary>
+    /// Called by SlotMachineController when all columns have stopped
     public void UnlockLever()
     {
         isSpinning = false;
