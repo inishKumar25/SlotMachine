@@ -2,29 +2,20 @@ using UnityEngine;
 
 public class LeverController : MonoBehaviour
 {
-    public Animator leverAnim; //Animator for Lever
+    [Tooltip("Animator for the lever pull animation")]
+    public Animator leverAnim;
+
+    [Tooltip("Reference to the SlotMachineController to trigger Spin()")]
+    public SlotMachineController SMC;
 
     [SerializeField] private bool isSpinning = false;
-    void Start()
-    {
-        
-    }
 
-    // Update is called once per frame
     void Update()
     {
         if (Input.GetMouseButtonDown(0))
-        {
             HandleClick();
-        }
     }
 
-    /*
-
-    HandleClick() uses to 
-
-
-    */
     void HandleClick()
     {
         if (isSpinning) return;
@@ -32,10 +23,8 @@ public class LeverController : MonoBehaviour
         Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         Collider2D hitCol = Physics2D.OverlapPoint(mousePos);
 
-        if(hitCol != null && hitCol.gameObject == gameObject)
-        {
+        if (hitCol != null && hitCol.gameObject == gameObject)
             PullLever();
-        }
     }
 
     void PullLever()
@@ -43,15 +32,14 @@ public class LeverController : MonoBehaviour
         if (isSpinning) return;
 
         isSpinning = true;
-
         leverAnim.SetTrigger("IsClicked");
-
-
+        SMC.Spin(this); // pass ourselves — SMC calls UnlockLever() when spin finishes
     }
 
+    
     public void UnlockLever()
     {
         isSpinning = false;
-
+        Debug.Log("Lever unlocked.");
     }
 }
