@@ -105,6 +105,10 @@ public class SlotMachineController : MonoBehaviour
     [Header("Jackpot Effects")]
     public ParticleSystem jackpotParticlesPrefab;
 
+    [Header("Currency")]
+    public int spinCost = 10;
+    public int winReward = 30;
+
     private int columnsFinished = 0;
 
     void Start() => InitialiseSlotRenderers();
@@ -126,6 +130,15 @@ public class SlotMachineController : MonoBehaviour
 
     public void Spin(LeverController lever = null)
     {
+        if (!CurrencyManager.Instance.CanAfford(spinCost))
+        {
+            Debug.Log("Not enough coins!");
+            lever?.UnlockLever();
+            return;
+        }
+
+        CurrencyManager.Instance.Spend(spinCost);
+
         columnsFinished = 0;
 
         slotColumnRenderer1.ApplyRandomOffset();
@@ -141,10 +154,9 @@ public class SlotMachineController : MonoBehaviour
         StartCoroutine(SpinColumn(slotColumnRenderer2, columnStopDelay));
         StartCoroutine(SpinColumn(slotColumnRenderer3, columnStopDelay * 2));
 
-        // ✅ Wait until all columns are ACTUALLY done
+       
         yield return new WaitUntil(() => columnsFinished >= 3);
 
-        // ✅ Check win condition
         int id1 = slotColumnRenderer1.GetPaylineItemId();
         int id2 = slotColumnRenderer2.GetPaylineItemId();
         int id3 = slotColumnRenderer3.GetPaylineItemId();
@@ -155,24 +167,19 @@ public class SlotMachineController : MonoBehaviour
 
         if (isWin)
         {
-            Debug.Log("WINNER!");
+
+            CurrencyManager.Instance.Add(winReward);
 
             if (jackpotParticlesPrefab != null)
             {
                 ParticleSystem ps = Instantiate(
                     jackpotParticlesPrefab,
-                    transform.position,   // or wherever you want it
+                    transform.position,
                     Quaternion.identity
                 );
 
                 ps.Play();
-
-                // optional: destroy after done
                 Destroy(ps.gameObject, ps.main.duration + ps.main.startLifetime.constantMax);
-            }
-            else
-            {
-                Debug.LogWarning("No ParticleSystem prefab assigned!");
             }
         }
 
