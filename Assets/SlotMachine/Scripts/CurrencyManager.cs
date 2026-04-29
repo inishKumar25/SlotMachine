@@ -1,3 +1,33 @@
+/*
+ 
+CURRENCY MANAGER LOGIC
+
+ROLE:
+This script manages the player's coin balance and updates the UI.
+
+FLOW:
+
+1. Game starts:
+   → currentCoins is set to startingCoins
+   → UI is updated
+
+2. When player spins:
+   → SlotMachineController calls Spend(amount)
+   → Coins are deducted
+   → UI updates
+
+3. When player wins:
+   → SlotMachineController calls Add(amount)
+   → Coins are added
+   → UI updates
+
+4. Before any purchase/spin:
+   → CanAfford(amount) checks if player has enough coins
+
+
+
+*/
+
 using UnityEngine;
 using TMPro;
 
