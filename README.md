@@ -31,9 +31,13 @@ The game includes:
 
 - System Design
   The game splits into clear Systems:
+  
   . SlotMachineController -> handles spin logic
+  
   . CurrencyManager -> handles coins & UI
+  
   . SlotMachineData -> stores symbol data
+  
   . BetButton ->  handles player betting input
 
 - Major Problem
