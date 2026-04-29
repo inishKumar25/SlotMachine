@@ -1,3 +1,32 @@
+/*
+ 
+SLOT MACHINE CONTROLLER CODE 
+  
+LOGIC FLOW:
+
+1. Spin() is called → starts spinning all 3 columns.
+
+2. Each column spins independently using a coroutine (SpinColumn).
+
+3. When a column finishes:
+   → it increments `columnsFinished`.
+
+4. SpinAllColumns() waits until:
+   → all 3 columns are done (columnsFinished >= 3)
+
+5. ONLY THEN:
+   → we check the PAYLINE IDs of all 3 columns.
+
+6. If all IDs match:
+   → it's a REAL WIN
+   → play particle effect instantly (no delay)
+
+7. Reset columnsFinished for next spin.
+
+
+*/
+
+
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,7 +42,16 @@ public class SlotMachineController : MonoBehaviour
         public void SetSampleData(SlotColumn sampleData)
         {
             slotColumnData = new SlotColumn();
-            slotColumnData.slotItems = new List<SlotItem>(sampleData.slotItems);
+            slotColumnData.slotItems = new List<SlotItem>();
+
+            foreach (var item in sampleData.slotItems)
+            {
+                slotColumnData.slotItems.Add(new SlotItem
+                {
+                    icon = item.icon,
+                    id = item.id
+                });
+            }
         }
 
         public void ApplyRandomOffset()
@@ -62,26 +100,12 @@ public class SlotMachineController : MonoBehaviour
     public float columnStopDelay = 0.4f;
 
     [Header("Fake Win Settings")]
-    [Tooltip("How long Col3 hovers on the near-miss position before slipping away")]
     public float fakeWinPauseDuration = 0.8f;
 
-    [Header("Win Condition")]
-    [Tooltip("Triggers a near-miss after this many normal spins")]
-    public int spinsUntilFakeWin = 8;
-
-    [Tooltip("Triggers a real win after this many spins (must be >= spinsUntilFakeWin)")]
-    public int spinsUntilRealWin = 10;
-
     [Header("Jackpot Effects")]
-    [Tooltip("Assign a ParticleSystem in the Inspector to play on a real win")]
-    public ParticleSystem jackpotParticles;
+    public ParticleSystem jackpotParticlesPrefab;
 
-    [Header("Debug — Read Only")]
-    [SerializeField] private int spinCount = 0;
-    [SerializeField] private bool isFakeWin = false;
-    [SerializeField] private bool isRealWin = false;
-
-
+    private int columnsFinished = 0;
 
     void Start() => InitialiseSlotRenderers();
 
@@ -102,74 +126,60 @@ public class SlotMachineController : MonoBehaviour
 
     public void Spin(LeverController lever = null)
     {
-        spinCount++;
+        columnsFinished = 0;
 
-        isRealWin = spinCount >= spinsUntilRealWin;
-        isFakeWin = isRealWin || spinCount >= spinsUntilFakeWin;
-
-        if (isRealWin)
-        {
-            spinCount = 0;
-            Debug.Log("[RealWin] Forced win triggered!");
-        }
-        else if (isFakeWin)
-        {
-            Debug.Log($"[FakeWin] Near-miss triggered on spin {spinCount}.");
-        }
-        else
-        {
-            Debug.Log($"[NormalSpin] Spin {spinCount}/{spinsUntilFakeWin} until near-miss.");
-        }
+        slotColumnRenderer1.ApplyRandomOffset();
+        slotColumnRenderer2.ApplyRandomOffset();
+        slotColumnRenderer3.ApplyRandomOffset();
 
         StartCoroutine(SpinAllColumns(lever));
     }
 
     private IEnumerator SpinAllColumns(LeverController lever = null)
     {
-        int targetId = -1;
+        StartCoroutine(SpinColumn(slotColumnRenderer1, 0f));
+        StartCoroutine(SpinColumn(slotColumnRenderer2, columnStopDelay));
+        StartCoroutine(SpinColumn(slotColumnRenderer3, columnStopDelay * 2));
 
-        if (isFakeWin)
+        // ✅ Wait until all columns are ACTUALLY done
+        yield return new WaitUntil(() => columnsFinished >= 3);
+
+        // ✅ Check win condition
+        int id1 = slotColumnRenderer1.GetPaylineItemId();
+        int id2 = slotColumnRenderer2.GetPaylineItemId();
+        int id3 = slotColumnRenderer3.GetPaylineItemId();
+
+        Debug.Log($"Payline IDs: {id1}, {id2}, {id3}");
+
+        bool isWin = (id1 == id2) && (id2 == id3);
+
+        if (isWin)
         {
-            var items = SlotMachineData.Instance.sampleColumnData.slotItems;
-            targetId = items[Random.Range(0, items.Count)]?.id ?? 0;
-            Debug.Log($"[Alignment] Target symbol id: {targetId}");
-        }
-
-        StartCoroutine(SpinColumn(slotColumnRenderer1, stopDelay: 0f, extraSteps: Random.Range(0, 10), fakeWin: isFakeWin, targetId: targetId, slip: false, realWin: isRealWin));
-        StartCoroutine(SpinColumn(slotColumnRenderer2, stopDelay: columnStopDelay, extraSteps: Random.Range(0, 10), fakeWin: isFakeWin, targetId: targetId, slip: false, realWin: isRealWin));
-        StartCoroutine(SpinColumn(slotColumnRenderer3, stopDelay: columnStopDelay * 2, extraSteps: Random.Range(0, 10), fakeWin: isFakeWin, targetId: targetId, slip: true, realWin: isRealWin));
-
-        float totalDuration = spinDuration + decelerationDuration + (columnStopDelay * 2) + 1f;
-        if (isFakeWin)
-            totalDuration += fakeWinPauseDuration + (maxStepInterval * 10);
-
-        yield return new WaitForSeconds(totalDuration);
-
-        if (isRealWin) 
-        {
-
-            if (jackpotParticles != null)
-                jackpotParticles.Play();
-            else
-                Debug.LogWarning("No jackpot ParticleSystem assigned!");
             Debug.Log("WINNER!");
 
-        }
+            if (jackpotParticlesPrefab != null)
+            {
+                ParticleSystem ps = Instantiate(
+                    jackpotParticlesPrefab,
+                    transform.position,   // or wherever you want it
+                    Quaternion.identity
+                );
 
-       
-        Debug.Log("All columns stopped.");
+                ps.Play();
+
+                // optional: destroy after done
+                Destroy(ps.gameObject, ps.main.duration + ps.main.startLifetime.constantMax);
+            }
+            else
+            {
+                Debug.LogWarning("No ParticleSystem prefab assigned!");
+            }
+        }
 
         lever?.UnlockLever();
     }
 
-    private IEnumerator SpinColumn(
-        SlotColumnRenderer column,
-        float stopDelay,
-        int extraSteps = 0,
-        bool fakeWin = false,
-        int targetId = -1,
-        bool slip = false,
-        bool realWin = false)
+    private IEnumerator SpinColumn(SlotColumnRenderer column, float stopDelay)
     {
         float elapsed = 0f;
         float accelerationDuration = 0.3f;
@@ -179,13 +189,13 @@ public class SlotMachineController : MonoBehaviour
         {
             float t = elapsed / accelerationDuration;
             float interval = Mathf.Lerp(maxStepInterval, minStepInterval, t);
-            column.StepOffset(1);
+            column.StepOffset(Random.Range(1, 3));
             column.UpdateRenderers();
             yield return new WaitForSeconds(interval);
             elapsed += interval;
         }
 
-        // Full speed 
+        // Full speed
         float fullSpeedEnd = spinDuration + stopDelay;
         while (elapsed < fullSpeedEnd)
         {
@@ -195,17 +205,10 @@ public class SlotMachineController : MonoBehaviour
             elapsed += minStepInterval;
         }
 
-        // Extra random steps (guarantees unique stop position per column)
-        for (int i = 0; i < extraSteps; i++)
-        {
-            column.StepOffset(1);
-            column.UpdateRenderers();
-            yield return new WaitForSeconds(minStepInterval);
-        }
-
-        // Deceleration 
+        // Deceleration
         float decelStart = elapsed;
         float decelEnd = decelStart + decelerationDuration;
+
         while (elapsed < decelEnd)
         {
             float t = (elapsed - decelStart) / decelerationDuration;
@@ -216,37 +219,7 @@ public class SlotMachineController : MonoBehaviour
             elapsed += interval;
         }
 
-        // Alignment phase
-        if (!fakeWin || targetId < 0) yield break;
-
-        int itemCount = column.GetItemCount();
-
-        if (realWin || !slip)
-        {
-            
-            for (int i = 0; i < itemCount; i++)
-            {
-                if (column.GetPaylineItemId() == targetId) break;
-                column.StepOffset(1);
-                column.UpdateRenderers();
-                yield return new WaitForSeconds(maxStepInterval);
-            }
-        }
-        else
-        {
-            
-            for (int i = 0; i < itemCount; i++)
-            {
-                if (column.GetNextPaylineItemId() == targetId) break;
-                column.StepOffset(1);
-                column.UpdateRenderers();
-                yield return new WaitForSeconds(maxStepInterval);
-            }
-
-            yield return new WaitForSeconds(fakeWinPauseDuration);
-
-            column.StepOffset(1);
-            column.UpdateRenderers();
-        }
+        
+        columnsFinished++;
     }
 }

@@ -1,3 +1,29 @@
+/*
+ 
+SLOT MACHINE DATA CODE 
+  
+LOGIC:
+
+1. SlotItem
+   → Represents ONE symbol (sprite + ID)
+
+2. SlotColumn
+   → Holds a list of SlotItems (one reel)
+   → Can rotate items using OffsetSlots()
+
+3. SlotMachineData (Singleton)
+   → Stores a SAMPLE column layout
+   → Other scripts (like SlotMachineController) clone this data
+
+FLOW:
+Controller → asks for sampleColumnData
+→ clones it into each column
+→ spins using OffsetSlots()
+→ renders sprites
+
+
+*/
+
 using System.Collections.Generic;
 using UnityEngine;
 

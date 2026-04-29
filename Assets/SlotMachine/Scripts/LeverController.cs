@@ -1,3 +1,29 @@
+/*
+ 
+LEVER CONTROLLER CODE
+ 
+LEVER FLOW:
+
+1. Player clicks on the lever (mouse click).
+
+2. We raycast using Physics2D to check:
+   → Did the player actually click THIS lever?
+
+3. If yes and NOT already spinning:
+   → Trigger animation
+   → Call SlotMachineController.Spin()
+
+4. While spinning:
+   → isSpinning = true (prevents spam clicks)
+
+5. When SlotMachineController finishes:
+   → it calls UnlockLever()
+
+6. Lever becomes usable again.
+
+*/
+
+
 using UnityEngine;
 
 public class LeverController : MonoBehaviour
