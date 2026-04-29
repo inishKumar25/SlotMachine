@@ -1,59 +1,45 @@
-# 🎰 Slot Machine Game (Unity)
 
-## 🎮 Game Overview
-This is a simple slot machine game built using Unity.
 
-The player pulls a lever to spin three reels. Each reel displays symbols, and the player wins when all three symbols on the payline match.
+## 🧠 Thought Process 
 
-The game includes:
-- Smooth spinning reel animations
-- Randomized outcomes
-- Betting system (20 / 40 / 80)
-- Currency system with rewards
-- Particle effects on win
+### System Design
+The game is structured into modular systems for clarity and scalability:
 
----
+- **SlotMachineController** → Handles spin logic and reel behavior  
+- **CurrencyManager** → Manages player coins and UI updates  
+- **SlotMachineData** → Stores and provides symbol data  
+- **BetButton** → Handles player betting input  
 
-## 🕹️ Gameplay Mechanics
-
-- Player starts with **100 coins**
-- Player selects a bet:
-  - 20
-  - 40
-  - 80
-- Each spin deducts the selected bet
-- If all 3 symbols match:
-  - Player wins **2× the bet amount**
+This separation ensures clean architecture and easier debugging.
 
 ---
 
-## Thought Process 
+### Major Problem Faced
 
-- System Design
-  The game splits into clear Systems:
-  
-  . SlotMachineController -> handles spin logic
-  
-  . CurrencyManager -> handles coins & UI
-  
-  . SlotMachineData -> stores symbol data
-  
-  . BetButton ->  handles player betting input
+**Problem:**  
+The 2nd and 3rd reels were always producing identical results.
 
-- Major Problem
-  Problem:
-  The 2nd and 3rd reels were always showing the same result.
+**Cause:**  
+- Slot data was being shallow-copied  
+- Multiple reels shared the same underlying data  
+- Identical movement logic resulted in identical outcomes  
 
-Cause:
-The slot data was being shallow-copied
-All reels shared the same underlying data
-Movement logic was identical → same outcomes
+**Solution:**  
+- Implemented a **deep copy** of slot data for each reel  
+- Added **random offsets** at the start of each spin  
+- Introduced **random step variation** during spinning  
 
-Solution:
-Implemented deep copy of slot data
-Added random offsets per spin
-Introduced random step variation during spinning
-
-This ensured each reel behaves independently.
+This ensured each reel behaves independently and produces proper randomized outcomes.
 
 ---
+
+### ✨ Visual Enhancements (Post-Processing)
+
+To improve the visual quality and overall feel of the game, post-processing effects were added:
+
+- **Bloom** → Enhances brightness and highlights winning visuals  
+- **Vignette** → Focuses attention toward the center of the screen  
+- **Chromatic Aberration** → Adds subtle visual distortion for a stylized effect  
+- **Distortion** → Gives a dynamic feel during gameplay and spin moments  
+
+These effects help create a more polished and engaging player experience.
